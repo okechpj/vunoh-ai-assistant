@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AI Task Dashboard</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="container">
+    <header class="hero"><br><br><br><br><br><br><br><br>
+      <h1 class="hero-title">What will you have Vunoh assist you with today?</h1>
+      
+      <form id="requestForm" class="magic-form">
+        <div class="input-wrapper">
+          <span class="icon-plus">
+            <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+          </span>
+          
+          <label for="userInput" class="sr-only">User Input</label>
+          <input type="text" id="userInput" placeholder="Describe your idea, and I'll bring it to life" autocomplete="off" />
+          
+          <div class="input-actions">
+            <div class="ai-stars-group">
+              <svg viewBox="0 0 24 24" fill="currentColor" class="ai-icon">
+                <path d="M12 2l2.4 7.6H22l-6.2 4.5 2.4 7.6-6.2-4.5-6.2 4.5 2.4-7.6-6.2-4.5h7.6z"/>
+              </svg>
+            </div>
+            <span class="mic-icon">
+              <svg fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+              </svg>
+            </span>
+          </div>
+          
+          <!-- Submit button kept for functional form submission -->
+          <button id="submitBtn" class="sr-only">Submit</button>
+        </div>
+        <div id="formFeedback" class="feedback" aria-live="polite"></div>
+      </form>
+
+      
+
+    </header>
+
+    <section class="dashboard">
+      <div class="dashboard-header">
+        <h2>Tasks</h2>
+        <div id="tasksControls">
+          <button id="refreshBtn" class="btn">Refresh</button>
+        </div>
+      </div>
+
+      <div id="tasksContainer" class="tasks-container">
+        <!-- tasks list injected here -->
+      </div>
+
+      <div id="emptyState" class="empty" hidden>
+        <p>No tasks yet. Submit a request to create one.</p>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- Task detail modal -->
+  <div id="taskModal" class="modal" aria-hidden="true">
+    <div class="modal-backdrop" id="modalBackdrop"></div>
+    <aside class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <header class="modal-header">
+        <h3 id="modalTitle">Task Overview</h3>
+        <button id="closeModal" class="btn-icon" aria-label="Close">×</button>
+      </header>
+      
+      <div class="modal-body">
+        
+        <!-- Left Column (Overview, Updates, Entities) -->
+        <div class="modal-col modal-left">
+          
+          <section class="meta-card">
+            <h4>Details</h4>
+            <div class="meta-grid">
+              <div class="meta-item">
+                <span class="meta-label">Task Code</span>
+                <span id="detailTaskCode" class="meta-value"></span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">Assigned To</span>
+                <span id="detailAssigned" class="meta-value"></span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">Intent</span>
+                <span id="detailIntent" class="badge"></span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">Risk Level</span>
+                <span id="detailRisk" class="risk"></span>
+              </div>
+              <div class="meta-item meta-full">
+                <span class="meta-label">Created At</span>
+                <span id="detailTimestamp" class="meta-value text-muted"></span>
+              </div>
+            </div>
+          </section>
+
+          <section class="entities">
+            <h4>Identified Entities</h4>
+            <dl id="entitiesList" class="kv"></dl>
+          </section>
+
+          <section class="status-update-card">
+            <h4>Update Status</h4>
+            <div class="status-row">
+              <select id="statusSelect" class="status-select">
+                <option value="Pending">Pending</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Completed">Completed</option>
+              </select>
+              <button id="updateStatusBtn" class="pill pill-primary">Save changes</button>
+            </div>
+            <div id="statusFeedback" class="feedback" aria-live="polite"></div>
+          </section>
+
+        </div>
+
+        <!-- Right Column (Steps, Comms) -->
+        <div class="modal-col modal-right">
+          
+          <section class="steps-card">
+            <h4>Execution Steps</h4>
+            <ol id="stepsList" class="styled-list"></ol>
+          </section>
+
+          <section class="messages-card">
+            <h4>Communications</h4>
+            <div class="tabs" role="tablist">
+              <button class="tab active" data-tab="whatsapp">WhatsApp</button>
+              <button class="tab" data-tab="email">Email</button>
+              <button class="tab" data-tab="sms">SMS</button>
+            </div>
+            <div class="tab-content" id="tabContent">
+              <div data-panel="whatsapp" class="panel chat active"></div>
+              <div data-panel="email" class="panel email-block"></div>
+              <div data-panel="sms" class="panel sms-block"></div>
+            </div>
+          </section>
+
+        </div>
+
+      </div>
+    </aside>
+  </div>
+
+  <script src="app.js" type="module"></script>
+</body>
+</html>

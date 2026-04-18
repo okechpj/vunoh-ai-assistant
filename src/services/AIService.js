@@ -219,7 +219,8 @@ function prompt_generateMessages(taskData) {
         'WhatsApp: conversational, may contain line breaks and light emoji.',
         'Email: formal, structured, must include task_code and full details.',
         'SMS: concise <= 160 characters and must include task_code.',
-        'Do NOT include extra fields.'
+        'Do NOT include extra fields.',
+        'Give the message abit more description and details if the risk_score is high, and keep it more generic if the risk_score is low.'
       ].join(' ')
     },
     {

@@ -8,9 +8,11 @@ const API = {
 };
 
 // Elements
-const userInput = document.getElementById('userInput');
-const submitBtn = document.getElementById('submitBtn');
-const formFeedback = document.getElementById('formFeedback');
+const chatWindow = document.getElementById('chatWindow');
+const chatForm = document.getElementById('chatForm');
+const chatInput = document.getElementById('chatInput');
+const chatSend = document.getElementById('chatSend');
+const chatFeedback = document.getElementById('chatFeedback');
 const tasksContainer = document.getElementById('tasksContainer');
 const emptyState = document.getElementById('emptyState');
 const refreshBtn = document.getElementById('refreshBtn');
@@ -227,11 +229,69 @@ async function handleStatusUpdate(){
 }
 
 // Events
-document.getElementById('requestForm').addEventListener('submit', handleSubmit);
+// Chat form submission
+const CHAT_SESSION_KEY = 'vunoh_chat_session';
+
+function getStoredSession(){ return localStorage.getItem(CHAT_SESSION_KEY) }
+function setStoredSession(id){ localStorage.setItem(CHAT_SESSION_KEY, id) }
+
+async function appendMessage(role, text){
+  const el = document.createElement('div');
+  el.className = `chat-msg ${role === 'user' ? 'chat-user' : 'chat-ai'}`;
+  el.innerHTML = `<div class="bubble">${escapeHtml(String(text))}</div>`;
+  chatWindow.appendChild(el);
+  chatWindow.scrollTop = chatWindow.scrollHeight;
+}
+
+async function sendChatMessage(message){
+  const sessionId = getStoredSession();
+  // show user message locally
+  await appendMessage('user', message);
+  chatInput.value = '';
+  chatSend.disabled = true; chatSend.textContent = '…';
+
+  try{
+    const payload = { sessionId, message };
+    const res = await fetch(`${BASE}/chat`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    if(!res.ok){ throw new Error(await res.text()) }
+    const data = await res.json();
+    if(data.sessionId) setStoredSession(data.sessionId);
+
+    if(data.type === 'followup'){
+      await appendMessage('ai', data.message);
+      chatFeedback.textContent = '';
+    } else if(data.type === 'complete'){
+      await appendMessage('ai', data.message);
+      chatFeedback.textContent = 'Request created — refreshing dashboard...';
+      // Refresh tasks list
+      await loadAndRender();
+      setTimeout(()=>{ chatFeedback.textContent = '' }, 3000);
+    } else {
+      await appendMessage('ai', data.message || 'Sorry, something went wrong.');
+    }
+  }catch(err){
+    chatFeedback.textContent = 'Error: '+err.message;
+  }finally{
+    chatSend.disabled = false; chatSend.textContent = 'Send';
+  }
+}
+
+chatForm.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const msg = chatInput.value && chatInput.value.trim();
+  if(!msg) return; await sendChatMessage(msg);
+});
+
 refreshBtn.addEventListener('click', loadAndRender);
 modalBackdrop.addEventListener('click', closeModalFn);
 closeModal.addEventListener('click', closeModalFn);
 updateStatusBtn.addEventListener('click', handleStatusUpdate);
 
 // Init
+// Initial render
 loadAndRender();
+
+// Warm welcome message if no session
+if(!getStoredSession()){
+  appendMessage('ai', 'Hi — tell me what you need and I will guide you through the required information.');
+}

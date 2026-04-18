@@ -230,6 +230,23 @@ function prompt_generateMessages(taskData) {
   ];
 }
 
+function prompt_generateFollowUpQuestion(intent, missingEntities, currentEntities) {
+  return [
+    {
+      role: 'system',
+      content: [
+        'You are a concise assistant that asks a single, focused follow-up question to collect missing information.',
+        'ONLY return the question text — do NOT return JSON, instructions, or any metadata.',
+        'Keep the question brief, polite, and specific to the missing fields. Use natural language.'
+      ].join(' ')
+    },
+    {
+      role: 'user',
+      content: `Intent: ${intent}\nMissing: ${JSON.stringify(missingEntities)}\nCurrent: ${JSON.stringify(currentEntities)}\nReturn a single follow-up question aimed to obtain the missing fields.`
+    }
+  ];
+}
+
 // AI call abstraction
 async function callLLM(messages = [], options = {}) {
   if (!AI_API_KEY) {
@@ -487,6 +504,34 @@ class AIService {
       const t = taskData?.task_code || 'UNKNOWN';
       const fallback = MESSAGES_FALLBACK(t);
       return fallback;
+    }
+  }
+
+  /**
+   * generateFollowUpQuestion(intent, missingEntities, currentEntities)
+   * - returns a short natural language question string
+   */
+  async generateFollowUpQuestion(intent, missingEntities, currentEntities) {
+    // Defensive: do not let AI decide control flow — it only generates a question
+    const attempt = async () => {
+      const messages = prompt_generateFollowUpQuestion(intent, missingEntities, currentEntities);
+      const raw = await callLLM(messages, { model: this.model, temperature: 0.3, max_tokens: 80 });
+      logAIInteraction('followup_raw', { intent, missingEntities, currentEntities }, raw);
+
+      // AI should return plain text; trim and return
+      const text = String(raw || '').trim();
+      if (!text) throw new Error('empty_followup');
+      // Ensure it's a single question-like sentence (best effort)
+      return text.replace(/\s+/g, ' ');
+    };
+
+    try {
+      return await retry(attempt, 2);
+    } catch (err) {
+      logAIInteraction('followup_failed', { intent, missingEntities, currentEntities }, { error: String(err) });
+      // Safe fallback question
+      const fields = Array.isArray(missingEntities) ? missingEntities.join(', ') : String(missingEntities);
+      return `Could you please provide the following information: ${fields}?`;
     }
   }
 }

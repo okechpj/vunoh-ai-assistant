@@ -20,6 +20,8 @@ app.use((req, res, next) => {
 
 app.use('/api', tasksRoutes);
 app.use('/api/ai', aiRoutes);
+// Also expose chat at /api/chat for convenience
+if (aiRoutes && aiRoutes.chatHandler) app.post('/api/chat', aiRoutes.chatHandler);
 
 app.listen(PORT, () => {
   console.log(`Vunoh skeleton API running on port ${PORT}`);

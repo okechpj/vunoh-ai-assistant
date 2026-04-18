@@ -11,35 +11,18 @@
     <header class="hero"><br><br><br><br><br><br><br><br>
       <h1 class="hero-title">What will you have Vunoh assist you with today?</h1>
       
-      <form id="requestForm" class="magic-form">
-        <div class="input-wrapper">
-          <span class="icon-plus">
-            <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-          </span>
-          
-          <label for="userInput" class="sr-only">User Input</label>
-          <input type="text" id="userInput" placeholder="Describe your idea, and I'll bring it to life" autocomplete="off" />
-          
-          <div class="input-actions">
-            <div class="ai-stars-group">
-              <svg viewBox="0 0 24 24" fill="currentColor" class="ai-icon">
-                <path d="M12 2l2.4 7.6H22l-6.2 4.5 2.4 7.6-6.2-4.5-6.2 4.5 2.4-7.6-6.2-4.5h7.6z"/>
-              </svg>
-            </div>
-            <span class="mic-icon">
-              <svg fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
-              </svg>
-            </span>
-          </div>
-          
-          <!-- Submit button kept for functional form submission -->
-          <button id="submitBtn" class="sr-only">Submit</button>
-        </div>
-        <div id="formFeedback" class="feedback" aria-live="polite"></div>
-      </form>
+      <!-- Chat interface replaces the single input form -->
+      <div id="chatCard" class="chat-card">
+        <div id="chatWindow" class="chat-window" role="log" aria-live="polite"></div>
+
+        <form id="chatForm" class="chat-form" autocomplete="off">
+          <label for="chatInput" class="sr-only">Message</label>
+          <textarea id="chatInput" rows="1" placeholder="Tell me what you need. I'll ask follow-up questions if needed..."></textarea>
+          <button id="chatSend" type="submit" class="btn">Send</button>
+        </form>
+
+        <div id="chatFeedback" class="feedback" aria-live="polite"></div>
+      </div>
 
       
 

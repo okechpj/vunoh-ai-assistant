@@ -7,6 +7,34 @@ const API = {
   status: (id) => `${BASE}/tasks/${id}/status`
 };
 
+// Navigation Elements
+const navChatBtn = document.getElementById('navChatBtn');
+const navDashboardBtn = document.getElementById('navDashboardBtn');
+const viewChat = document.getElementById('viewChat');
+const viewDashboard = document.getElementById('viewDashboard');
+
+// Navigation Logic
+function switchView(viewName) {
+  navChatBtn.classList.remove('active');
+  navDashboardBtn.classList.remove('active');
+  viewChat.classList.remove('active-view');
+  viewDashboard.classList.remove('active-view');
+  
+  if(viewName === 'chat') {
+    navChatBtn.classList.add('active');
+    viewChat.classList.add('active-view');
+  } else {
+    navDashboardBtn.classList.add('active');
+    viewDashboard.classList.add('active-view');
+    // auto-refresh tasks when opening dashboard
+    loadAndRender();
+  }
+}
+if(navChatBtn && navDashboardBtn) {
+  navChatBtn.addEventListener('click', () => switchView('chat'));
+  navDashboardBtn.addEventListener('click', () => switchView('dashboard'));
+}
+
 // Elements
 const chatWindow = document.getElementById('chatWindow');
 const chatForm = document.getElementById('chatForm');
@@ -106,7 +134,7 @@ function renderTasks(tasks){
         <div class="risk ${riskClass(t.risk_score)}">${(t.risk_score!=null?Math.round(t.risk_score):'—')}%</div>
         <div class="status">${t.status || 'Pending'}</div>
         <div>${t.assigned_team || 'Unassigned'}</div>
-        <div>${formatTimestamp(t.timestamp)}</div>
+        <div>${formatTimestamp(t.created_at)}</div>
       </div>
     `;
 
@@ -117,45 +145,65 @@ function renderTasks(tasks){
 }
 
 async function renderTaskDetail(task){
-  currentTaskId = task.id;
-  detailTaskCode.textContent = task.task_code || '-';
-  detailIntent.textContent = task.intent || '-';
-  detailIntent.className = 'badge';
-  detailRisk.textContent = task.risk_score!=null?Math.round(task.risk_score)+'%':'-';
-  detailRisk.className = 'risk '+riskClass(task.risk_score);
-  detailAssigned.textContent = task.assigned_team || 'Unassigned';
-  detailTimestamp.textContent = formatTimestamp(task.timestamp);
 
-  // Entities
-  entitiesList.innerHTML = '';
-  const entities = task.entities || {};
-  Object.keys(entities).forEach(k => {
-    const dt = document.createElement('dt'); dt.textContent = k;
-    const dd = document.createElement('dd'); dd.textContent = entities[k] === null ? '-' : String(entities[k]);
-    entitiesList.appendChild(dt); entitiesList.appendChild(dd);
-  });
-
-  // Steps
-  stepsList.innerHTML = '';
-  const steps = task.steps || [];
-  if(steps.length === 0){
-    const li = document.createElement('li'); li.textContent = 'No steps available'; stepsList.appendChild(li);
+  // API returns either a task object or a wrapper { task, entities, steps, messages }
+  let core = task;
+  let entities = [];
+  let steps = [];
+  let messages = [];
+  if (task && task.task) {
+    core = task.task;
+    entities = task.entities || [];
+    steps = task.steps || [];
+    messages = task.messages || [];
   } else {
-    steps.forEach(s => { const li = document.createElement('li'); li.textContent = s; stepsList.appendChild(li); });
+    // legacy: if caller passed a flat object
+    core = task || {};
+    entities = core.entities || [];
+    steps = core.steps || [];
+    messages = core.messages || [];
   }
 
-  // Messages
+  currentTaskId = core.id;
+  detailTaskCode.textContent = core.task_code || '-';
+  detailIntent.textContent = core.intent || '-';
+  detailIntent.className = 'badge';
+  detailRisk.textContent = (core.risk_score!=null)?Math.round(core.risk_score)+'%':'-';
+  detailRisk.className = 'risk '+riskClass(core.risk_score);
+  detailAssigned.textContent = core.assigned_team || 'Unassigned';
+  detailTimestamp.textContent = formatTimestamp(core.created_at || core.timestamp);
+
+  // Entities (array of {entity_type, value})
+  entitiesList.innerHTML = '';
+  if (Array.isArray(entities)){
+    entities.forEach(e => {
+      const dt = document.createElement('dt'); dt.textContent = e.entity_type || e.key || '-';
+      const dd = document.createElement('dd'); dd.textContent = (e.value == null ? '-' : String(e.value));
+      entitiesList.appendChild(dt); entitiesList.appendChild(dd);
+    });
+  }
+
+  // Steps (array of rows with description)
+  stepsList.innerHTML = '';
+  if (!steps || steps.length === 0){
+    const li = document.createElement('li'); li.textContent = 'No steps available'; stepsList.appendChild(li);
+  } else {
+    steps.forEach(s => { const li = document.createElement('li'); li.textContent = s.description || s; stepsList.appendChild(li); });
+  }
+
+  // Messages: convert array to map by type
   const whatsappPanel = document.querySelector('[data-panel="whatsapp"]');
   const emailPanel = document.querySelector('[data-panel="email"]');
   const smsPanel = document.querySelector('[data-panel="sms"]');
   whatsappPanel.innerHTML = ''; emailPanel.innerHTML=''; smsPanel.innerHTML='';
-  const messages = task.messages || {};
-  whatsappPanel.innerHTML = messages.whatsapp ? renderChatBubble(messages.whatsapp) : '<div class="bubble">-</div>';
-  emailPanel.textContent = messages.email || '-';
-  smsPanel.textContent = messages.sms || '-';
+  const msgsByType = {};
+  (messages || []).forEach(m => { msgsByType[m.type || m.channel] = m.content || m; });
+  whatsappPanel.innerHTML = msgsByType.whatsapp ? renderChatBubble(msgsByType.whatsapp) : '<div class="bubble">-</div>';
+  emailPanel.textContent = msgsByType.email || '-';
+  smsPanel.textContent = msgsByType.sms || '-';
 
   // status select
-  statusSelect.value = task.status || 'Pending';
+  statusSelect.value = core.status || 'Pending';
 
   // show modal
   openModal();
@@ -281,6 +329,14 @@ chatForm.addEventListener('submit', async (e)=>{
   const msg = chatInput.value && chatInput.value.trim();
   if(!msg) return; await sendChatMessage(msg);
 });
+
+// Wire the AI/star button to focus the input for quick prompts
+const chatAIBtn = document.getElementById('chatAIBtn');
+if (chatAIBtn) chatAIBtn.addEventListener('click', (e)=>{ e.preventDefault(); chatInput.focus(); });
+
+// Wire mic button (non-functional stub) to focus input — placeholder for voice integration
+const chatMic = document.getElementById('chatMic');
+if (chatMic) chatMic.addEventListener('click', (e)=>{ e.preventDefault(); chatInput.focus(); });
 
 refreshBtn.addEventListener('click', loadAndRender);
 modalBackdrop.addEventListener('click', closeModalFn);

@@ -1,54 +1,15 @@
-const { v4: uuidv4 } = require('uuid');
-const AIService = require('../services/AIService');
-const RiskEngine = require('../services/riskEngine');
+const TaskService = require('../services/taskService');
+const taskService = new TaskService();
 
-const aiService = new AIService();
-const riskEngine = new RiskEngine();
-const taskStore = [];
-const AssignmentService = require('../services/assignmentService');
-const assignmentService = new AssignmentService();
+const taskStore = null; // legacy placeholder; persistence is handled by taskService
 /**
  * createTaskFromData
  * - Core task creation logic factored out so other routes (chat) can call it.
  * - Accepts already-determined `intent` and `entities` and returns the created task object.
  */
+// Delegate persistence to taskService
 async function createTaskFromData({ intent, entities, userContext = {}, userInput = '' }) {
-  const steps = await aiService.generateSteps(intent, entities);
-  const task_code = `TASK-${Math.floor(1000 + Math.random() * 9000)}`;
-
-  // ensure userInput available for risk engine parsing
-  userContext = userContext || {};
-  if (userInput) userContext.userInput = userInput;
-
-  const risk = riskEngine.calculate(intent, entities, userContext);
-
-  const messages = await aiService.generateMessages({
-    task_code,
-    intent,
-    entities,
-    risk_score: risk.risk_score
-  });
-
-  const assignment = assignmentService.assign(intent, entities);
-
-  const task = {
-    id: uuidv4(),
-    task_code,
-    intent,
-    entities,
-    risk_score: risk.risk_score,
-    status: 'Pending',
-    assigned_team: assignment.team,
-    assigned_unit: assignment.unit,
-    timestamp: new Date().toISOString(),
-    steps,
-    messages,
-    risk_level: risk.risk_level,
-    breakdown: risk.breakdown
-  };
-
-  taskStore.unshift(task);
-  return task;
+  return taskService.createTaskFromData({ intent, entities, userContext, userInput });
 }
 
 exports.createRequest = async (req, res) => {
@@ -58,8 +19,7 @@ exports.createRequest = async (req, res) => {
   }
 
   try {
-    const extracted = await aiService.extractIntentEntities(userInput);
-    const task = await createTaskFromData({ intent: extracted.intent, entities: extracted.entities, userInput, userContext: req.body.userContext });
+    const task = await taskService.createTaskFromInput(userInput, req.body.userContext || {});
     res.status(201).json(task);
   } catch (error) {
     console.error('createRequest failed', error);
@@ -70,20 +30,29 @@ exports.createRequest = async (req, res) => {
 // Export helper for other modules (chat route)
 exports.createTaskFromData = createTaskFromData;
 
-exports.getTasks = (req, res) => {
-  res.json(taskStore);
-};
-
-exports.getTaskById = (req, res) => {
-  const { id } = req.params;
-  const task = taskStore.find((item) => item.id === id);
-  if (!task) {
-    return res.status(404).json({ error: 'Task not found' });
+exports.getTasks = async (req, res) => {
+  try {
+    const rows = await taskService.getAllTasks();
+    res.json(rows);
+  } catch (err) {
+    console.error('getTasks failed', err);
+    res.status(500).json({ error: 'Unable to fetch tasks' });
   }
-  res.json(task);
 };
 
-exports.updateTaskStatus = (req, res) => {
+exports.getTaskById = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await taskService.getTaskById(id);
+    if (!result || !result.task) return res.status(404).json({ error: 'Task not found' });
+    res.json(result);
+  } catch (err) {
+    console.error('getTaskById failed', err);
+    res.status(500).json({ error: 'Unable to fetch task' });
+  }
+};
+
+exports.updateTaskStatus = async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
   const allowed = ['Pending', 'In Progress', 'Completed'];
@@ -92,11 +61,12 @@ exports.updateTaskStatus = (req, res) => {
     return res.status(400).json({ error: 'Invalid status' });
   }
 
-  const task = taskStore.find((item) => item.id === id);
-  if (!task) {
-    return res.status(404).json({ error: 'Task not found' });
+  try {
+    const result = await taskService.updateTaskStatus(id, status);
+    res.json(result);
+  } catch (err) {
+    console.error('updateTaskStatus failed', err);
+    if (err && err.code === 'not_found') return res.status(404).json({ error: 'Task not found' });
+    res.status(500).json({ error: 'Unable to update status' });
   }
-
-  task.status = status;
-  res.json(task);
 };

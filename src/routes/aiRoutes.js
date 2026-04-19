@@ -42,7 +42,17 @@ async function chatHandler(req, res) {
 
   // Initialize or fetch session
   let session = null;
-  if (sessionId) session = sessions.get(sessionId) || null;
+  if (sessionId) {
+    const existing = sessions.get(sessionId) || null;
+    // If provided session is already completed, start a new session instead
+    if (existing && existing.completed) {
+      // treat further input as a new conversation
+      session = null;
+    } else {
+      session = existing;
+    }
+  }
+
   if (!session) {
     const id = uuidv4();
     session = { id, intent: null, entities: {}, messages: [], completed: false };
@@ -53,8 +63,10 @@ async function chatHandler(req, res) {
   session.messages.push({ role: 'user', text: message, ts: new Date().toISOString() });
 
   try {
-    // Ask AI to extract intent/entities from this message
-    const extracted = await ai.extractIntentEntities(message);
+    // Build conversation transcript so extraction has context (assistant prompts + user answers)
+    const transcript = session.messages.map(m => `${m.role === 'assistant' ? 'Assistant' : 'User'}: ${m.text}`).join('\n');
+    // Ask AI to extract intent/entities from the full conversation (helps short answers like "50" be interpreted)
+    const extracted = await ai.extractIntentEntities(transcript);
 
     // If session has no intent yet, set it when AI returns a valid one
     if (!session.intent && extracted.intent && extracted.intent !== 'unknown') {
@@ -74,15 +86,16 @@ async function chatHandler(req, res) {
     const missing = required.filter(k => !(session.entities && session.entities[k] !== null && session.entities[k] !== undefined));
 
     if (missing.length > 0) {
-      // Generate follow-up question text only
-      const follow = await ai.generateFollowUpQuestion(intentKey, missing, session.entities || {});
+      // Generate follow-up question text only (pass transcript so AI can craft context-aware prompts)
+      const follow = await ai.generateFollowUpQuestion(intentKey, missing, session.entities || {}, transcript);
       session.messages.push({ role: 'assistant', text: follow, ts: new Date().toISOString() });
       sessions.set(session.id, session);
       return res.json({ sessionId: session.id, type: 'followup', message: follow, missingEntities: missing });
     }
 
     // All required entities present -> create task via tasksController helper
-    const created = await tasksController.createTaskFromData({ intent: intentKey, entities: session.entities, userContext: userContext || {}, userInput: message });
+    // Use the full transcript as the userInput for downstream processing (risk parsing, logging)
+    const created = await tasksController.createTaskFromData({ intent: intentKey, entities: session.entities, userContext: userContext || {}, userInput: transcript });
 
     const confirmText = `Thank you for the information. Your request (${created.task_code}) has been created. Please check your dashboard for details.`;
     session.messages.push({ role: 'assistant', text: confirmText, ts: new Date().toISOString() });

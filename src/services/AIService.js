@@ -31,7 +31,14 @@ const DEFAULT_TEMPERATURE = 0.2; // low randomness for determinism
 const REQUEST_TIMEOUT_MS = 25_000;
 
 // Allowed intents and entity keys (single source of truth)
-const ALLOWED_INTENTS = ['send_money', 'hire_service', 'verify_document', 'check_status'];
+// Note: intents are normalized tokens used by the backend logic.
+const ALLOWED_INTENTS = [
+  'send_money',
+  'get_airport_transfer',
+  'hire_service',
+  'verify_document',
+  'check_status'
+];
 const ENTITY_KEYS = [
   'amount',
   'recipient',
@@ -182,11 +189,13 @@ function prompt_extractIntentEntities() {
     {
       role: 'system',
       content: [
-        'You are a deterministic extraction assistant. When given user text, you MUST output JSON only (no commentary).',
+        'You are a deterministic extraction assistant. When given user text or a short conversation transcript, you MUST output JSON only (no commentary).',
         `Allowed intents: ${ALLOWED_INTENTS.join(', ')}`,
-        'Entities to extract: amount (number), recipient (string), location (string), service_type (string), document_type (string), urgency (low|medium|high).',
-        'Output EXACTLY the JSON object with shape: { "intent": "...", "entities": { "amount": number|null, "recipient": string|null, "location": string|null, "service_type": string|null, "document_type": string|null, "urgency": "low|medium|high"|null } }',
-        'If you cannot determine an intent from allowed list, set intent to "unknown" and entities to {}.'
+        'Entities to extract (only those relevant to the intent): amount (number), recipient (string), location (string), service_type (string), document_type (string), urgency (low|medium|high).',
+        'Use context from a provided conversation transcript when short answers appear (for example: if prior assistant asked "How much?" and user replied "100", infer amount=100).',
+        'Output EXACTLY the JSON object with this shape and NO additional fields:',
+        '{"intent":"<one_of_allowed_intents_or_unknown>","entities":{"amount":number|null,"recipient":string|null,"location":string|null,"service_type":string|null,"document_type":string|null,"urgency":"low|medium|high"|null}}',
+        'If the intent cannot be determined from the allowed list set intent to "unknown" and entities to {}. For any entity you cannot infer, set the value to null. Do NOT return explanations, examples, or extra keys.'
       ].join(' ')
     }
   ];
@@ -230,7 +239,7 @@ function prompt_generateMessages(taskData) {
   ];
 }
 
-function prompt_generateFollowUpQuestion(intent, missingEntities, currentEntities) {
+function prompt_generateFollowUpQuestion(intent, missingEntities, currentEntities, transcript = '') {
   return [
     {
       role: 'system',
@@ -242,7 +251,7 @@ function prompt_generateFollowUpQuestion(intent, missingEntities, currentEntitie
     },
     {
       role: 'user',
-      content: `Intent: ${intent}\nMissing: ${JSON.stringify(missingEntities)}\nCurrent: ${JSON.stringify(currentEntities)}\nReturn a single follow-up question aimed to obtain the missing fields.`
+      content: `Intent: ${intent}\nMissing: ${JSON.stringify(missingEntities)}\nCurrent: ${JSON.stringify(currentEntities)}\nTranscript: ${transcript}\nReturn a single follow-up question aimed to obtain the missing fields.`
     }
   ];
 }
@@ -511,10 +520,10 @@ class AIService {
    * generateFollowUpQuestion(intent, missingEntities, currentEntities)
    * - returns a short natural language question string
    */
-  async generateFollowUpQuestion(intent, missingEntities, currentEntities) {
+  async generateFollowUpQuestion(intent, missingEntities, currentEntities, transcript = '') {
     // Defensive: do not let AI decide control flow — it only generates a question
     const attempt = async () => {
-      const messages = prompt_generateFollowUpQuestion(intent, missingEntities, currentEntities);
+      const messages = prompt_generateFollowUpQuestion(intent, missingEntities, currentEntities, transcript);
       const raw = await callLLM(messages, { model: this.model, temperature: 0.3, max_tokens: 80 });
       logAIInteraction('followup_raw', { intent, missingEntities, currentEntities }, raw);
 

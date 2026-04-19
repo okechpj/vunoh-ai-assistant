@@ -7,29 +7,67 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <main class="container">
-    <header class="hero"><br><br><br><br><br><br><br><br>
-      <h1 class="hero-title">What will you have Vunoh assist you with today?</h1>
-      
-      <!-- Chat interface replaces the single input form -->
-      <div id="chatCard" class="chat-card">
-        <div id="chatWindow" class="chat-window" role="log" aria-live="polite"></div>
-
-        <form id="chatForm" class="chat-form" autocomplete="off">
-          <label for="chatInput" class="sr-only">Message</label>
-          <textarea id="chatInput" rows="1" placeholder="Tell me what you need. I'll ask follow-up questions if needed..."></textarea>
-          <button id="chatSend" type="submit" class="btn">Send</button>
-        </form>
-
-        <div id="chatFeedback" class="feedback" aria-live="polite"></div>
+  <!-- Top Navigation Bar -->
+  <nav class="top-nav">
+    <div class="nav-container">
+      <div class="nav-brand">
+        <span class="brand-sparkle">✨</span> Vunoh AI
       </div>
+      <div class="nav-links">
+        <button id="navChatBtn" class="nav-link active">Vunoh AI</button>
+        <button id="navDashboardBtn" class="nav-link">Dashboard</button>
+      </div>
+    </div>
+  </nav>
 
-      
+  <main class="container">
+    
+    <!-- Chat View -->
+    <section id="viewChat" class="view-section active-view">
+      <header class="hero"><br>
+        <h1 class="hero-title">What will you have Vunoh assist you with today?</h1>
+        
+        <div id="chatCard" class="chat-card">
+          <div id="chatWindow" class="chat-window" role="log" aria-live="polite"></div>
 
-    </header>
+          <form id="chatForm" class="chat-form" autocomplete="off">
+            <label for="chatInput" class="sr-only">Message</label>
+            <div class="input-wrapper chat-input-wrapper">
+              <button id="chatAIBtn" type="button" class="btn-ai-sparkle" aria-label="AI suggestion">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="ai-sparkle-icon">
+                  <defs>
+                    <linearGradient id="aiSparkleGrad" x1="15%" y1="15%" x2="85%" y2="85%">
+                      <stop offset="0%" stop-color="#FACC15" />
+                      <stop offset="35%" stop-color="#EF4444" />
+                      <stop offset="65%" stop-color="#3B82F6" />
+                      <stop offset="100%" stop-color="#22C55E" />
+                    </linearGradient>
+                  </defs>
+                  <path d="M12 2C12 7.52 7.52 12 2 12C7.52 12 12 16.48 12 22C12 16.48 16.48 12 22 12C16.48 12 12 7.52 12 2Z" fill="url(#aiSparkleGrad)"/>
+                </svg>
+              </button>
 
-    <section class="dashboard">
-      <div class="dashboard-header">
+              <textarea id="chatInput" rows="1" placeholder="Send money, hire services and verify documents..."></textarea>
+
+              <div class="input-actions chat-input-actions">
+                <button id="chatSend" type="submit" class="btn-chat-send" aria-label="Send">
+                  <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </form>
+
+          <div id="chatFeedback" class="feedback" aria-live="polite"></div>
+        </div>
+      </header>
+    </section>
+
+    <!-- Dashboard View -->
+    <section id="viewDashboard" class="view-section">
+      <div class="dashboard">
+        <div class="dashboard-header">
         <h2>Tasks</h2>
         <div id="tasksControls">
           <button id="refreshBtn" class="btn">Refresh</button>
@@ -43,7 +81,7 @@
       <div id="emptyState" class="empty" hidden>
         <p>No tasks yet. Submit a request to create one.</p>
       </div>
-
+      </div>
     </section>
   </main>
 

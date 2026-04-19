@@ -1,0 +1,397 @@
+// Base backend URL (adjust if backend runs on different host/port)
+const BASE = (window.__API_BASE__ || 'http://localhost:3000/api');
+const API = {
+  create: `${BASE}/request`,
+  tasks: `${BASE}/tasks`,
+  task: (id) => `${BASE}/tasks/${id}`,
+  status: (id) => `${BASE}/tasks/${id}/status`
+};
+
+// Navigation Elements
+const navChatBtn = document.getElementById('navChatBtn');
+const navDashboardBtn = document.getElementById('navDashboardBtn');
+const viewChat = document.getElementById('viewChat');
+const viewDashboard = document.getElementById('viewDashboard');
+
+// Navigation Logic
+function switchView(viewName) {
+  navChatBtn.classList.remove('active');
+  navDashboardBtn.classList.remove('active');
+  viewChat.classList.remove('active-view');
+  viewDashboard.classList.remove('active-view');
+  
+  if(viewName === 'chat') {
+    navChatBtn.classList.add('active');
+    viewChat.classList.add('active-view');
+  } else {
+    navDashboardBtn.classList.add('active');
+    viewDashboard.classList.add('active-view');
+    // auto-refresh tasks when opening dashboard
+    loadAndRender();
+  }
+}
+if(navChatBtn && navDashboardBtn) {
+  navChatBtn.addEventListener('click', () => switchView('chat'));
+  navDashboardBtn.addEventListener('click', () => switchView('dashboard'));
+}
+
+// Elements
+const chatWindow = document.getElementById('chatWindow');
+const chatForm = document.getElementById('chatForm');
+const chatInput = document.getElementById('chatInput');
+const chatSend = document.getElementById('chatSend');
+const chatFeedback = document.getElementById('chatFeedback');
+const tasksContainer = document.getElementById('tasksContainer');
+const emptyState = document.getElementById('emptyState');
+const refreshBtn = document.getElementById('refreshBtn');
+
+// Modal
+const taskModal = document.getElementById('taskModal');
+const modalBackdrop = document.getElementById('modalBackdrop');
+const closeModal = document.getElementById('closeModal');
+const detailTaskCode = document.getElementById('detailTaskCode');
+const detailIntent = document.getElementById('detailIntent');
+const detailRisk = document.getElementById('detailRisk');
+const detailAssigned = document.getElementById('detailAssigned');
+const detailTimestamp = document.getElementById('detailTimestamp');
+const entitiesList = document.getElementById('entitiesList');
+const stepsList = document.getElementById('stepsList');
+const tabButtons = document.querySelectorAll('.tab');
+const panels = document.querySelectorAll('.panel');
+const statusSelect = document.getElementById('statusSelect');
+const updateStatusBtn = document.getElementById('updateStatusBtn');
+const statusFeedback = document.getElementById('statusFeedback');
+
+let currentTaskId = null;
+
+// Utilities
+function showFeedback(el, message, success = true) {
+  el.textContent = message;
+  el.style.color = success ? '' : 'var(--danger)';
+  setTimeout(() => { el.textContent = '' }, 4000);
+}
+
+function formatTimestamp(ts){
+  if(!ts) return '-';
+  const d = new Date(ts);
+  return d.toLocaleString();
+}
+
+function riskClass(score){
+  if(score == null) return 'medium';
+  // score is 0-100
+  if (score < 30) return 'low';
+  if (score < 70) return 'medium';
+  return 'high';
+}
+
+// Fetch wrapper
+async function fetchJson(url, opts = {}){
+  const headers = { 'Content-Type': 'application/json' };
+  // CORS-friendly: fetch to backend running on a different origin
+  const cfg = Object.assign({ headers, mode: 'cors', credentials: 'same-origin' }, opts);
+  const res = await fetch(url, cfg);
+  if(!res.ok){
+    const text = await res.text();
+    throw new Error(text || res.statusText);
+  }
+  return res.json();
+}
+
+// API functions
+async function createTask(input){
+  return fetchJson(API.create, { method: 'POST', body: JSON.stringify({ userInput: input }) });
+}
+async function fetchTasks(){
+  return fetchJson(API.tasks);
+}
+async function fetchTask(id){
+  return fetchJson(API.task(id));
+}
+async function patchStatus(id, status){
+  return fetchJson(API.status(id), { method: 'PATCH', body: JSON.stringify({ status }) });
+}
+
+// Renderers
+function renderTasks(tasks){
+  tasksContainer.innerHTML = '';
+  if(!tasks || tasks.length === 0){
+    emptyState.hidden = false;
+    return;
+  }
+  emptyState.hidden = true;
+
+  tasks.forEach(t => {
+    const card = document.createElement('article');
+    card.className = 'task-card';
+    card.tabIndex = 0;
+    card.innerHTML = `
+      <div class="task-top">
+        <div class="task-code">${t.task_code}</div>
+        <div class="intent-badge">${t.intent || 'unknown'}</div>
+      </div>
+      <div class="task-meta">
+        <div class="risk ${riskClass(t.risk_score)}">${(t.risk_score!=null?Math.round(t.risk_score):'—')}%</div>
+        <div class="status">${t.status || 'Pending'}</div>
+        <div>${t.assigned_team || 'Unassigned'}</div>
+        <div>${formatTimestamp(t.created_at)}</div>
+      </div>
+    `;
+
+    card.addEventListener('click', ()=> openTask(t.id));
+    card.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') openTask(t.id) });
+    tasksContainer.appendChild(card);
+  });
+}
+
+async function renderTaskDetail(task){
+
+  // API returns either a task object or a wrapper { task, entities, steps, messages }
+  let core = task;
+  let entities = [];
+  let steps = [];
+  let messages = [];
+  if (task && task.task) {
+    core = task.task;
+    entities = task.entities || [];
+    steps = task.steps || [];
+    messages = task.messages || [];
+  } else {
+    // legacy: if caller passed a flat object
+    core = task || {};
+    entities = core.entities || [];
+    steps = core.steps || [];
+    messages = core.messages || [];
+  }
+
+  currentTaskId = core.id;
+  detailTaskCode.textContent = core.task_code || '-';
+  detailIntent.textContent = core.intent || '-';
+  detailIntent.className = 'badge';
+  detailRisk.textContent = (core.risk_score!=null)?Math.round(core.risk_score)+'%':'-';
+  detailRisk.className = 'risk '+riskClass(core.risk_score);
+  detailAssigned.textContent = core.assigned_team || 'Unassigned';
+  detailTimestamp.textContent = formatTimestamp(core.created_at || core.timestamp);
+
+  // Entities (array of {entity_type, value})
+  entitiesList.innerHTML = '';
+  if (Array.isArray(entities)){
+    entities.forEach(e => {
+      const dt = document.createElement('dt'); dt.textContent = e.entity_type || e.key || '-';
+      const dd = document.createElement('dd'); dd.textContent = (e.value == null ? '-' : String(e.value));
+      entitiesList.appendChild(dt); entitiesList.appendChild(dd);
+    });
+  }
+
+  // Steps (array of rows with description)
+  stepsList.innerHTML = '';
+  if (!steps || steps.length === 0){
+    const li = document.createElement('li'); li.textContent = 'No steps available'; stepsList.appendChild(li);
+  } else {
+    steps.forEach(s => { const li = document.createElement('li'); li.textContent = s.description || s; stepsList.appendChild(li); });
+  }
+
+  // Messages: convert array to map by type
+  const whatsappPanel = document.querySelector('[data-panel="whatsapp"]');
+  const emailPanel = document.querySelector('[data-panel="email"]');
+  const smsPanel = document.querySelector('[data-panel="sms"]');
+  whatsappPanel.innerHTML = ''; emailPanel.innerHTML=''; smsPanel.innerHTML='';
+  const msgsByType = {};
+  (messages || []).forEach(m => { msgsByType[m.type || m.channel] = m.content || m; });
+  whatsappPanel.innerHTML = msgsByType.whatsapp ? renderChatBubble(msgsByType.whatsapp) : '<div class="bubble">-</div>';
+  emailPanel.textContent = msgsByType.email || '-';
+  smsPanel.textContent = msgsByType.sms || '-';
+
+  // status select
+  statusSelect.value = core.status || 'Pending';
+
+  // show modal
+  openModal();
+}
+
+function renderChatBubble(text){
+  // simple split by line
+  const lines = String(text).split('\n');
+  return lines.map(l => `<div class="bubble">${escapeHtml(l)}</div>`).join('');
+}
+
+function escapeHtml(s){ return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])) }
+
+// Interactions
+async function loadAndRender(){
+  tasksContainer.innerHTML = '<div class="feedback">Loading…</div>';
+  try{
+    const tasks = await fetchTasks();
+    renderTasks(tasks);
+  }catch(err){
+    tasksContainer.innerHTML = `<div class="empty">Error loading tasks: ${escapeHtml(String(err.message))}</div>`;
+  }
+}
+
+async function handleSubmit(e){
+  e.preventDefault();
+  const input = userInput.value.trim();
+  if(!input){ showFeedback(formFeedback, 'Please enter a request', false); return; }
+  submitBtn.disabled = true; submitBtn.textContent = 'Processing…';
+  try{
+    await createTask(input);
+    showFeedback(formFeedback, 'Request submitted', true);
+    userInput.value = '';
+    await loadAndRender();
+  }catch(err){
+    showFeedback(formFeedback, 'Failed to submit: '+err.message, false);
+  }finally{ submitBtn.disabled = false; submitBtn.textContent = 'Submit Request' }
+}
+
+async function openTask(id){
+  try{
+    const task = await fetchTask(id);
+    await renderTaskDetail(task);
+  }catch(err){ alert('Failed to load task: '+err.message) }
+}
+
+function openModal(){ taskModal.setAttribute('aria-hidden','false'); taskModal.style.display='flex' }
+function closeModalFn(){ taskModal.setAttribute('aria-hidden','true'); taskModal.style.display='none' }
+
+// Tab behavior
+tabButtons.forEach(btn => btn.addEventListener('click', ()=>{
+  tabButtons.forEach(b=>b.classList.remove('active'));
+  panels.forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  const tab = btn.getAttribute('data-tab');
+  document.querySelector(`[data-panel="${tab}"]`).classList.add('active');
+}));
+
+// status update
+async function handleStatusUpdate(){
+  if(!currentTaskId) return;
+  updateStatusBtn.disabled = true; statusFeedback.textContent = 'Updating…';
+  try{
+    await patchStatus(currentTaskId, statusSelect.value);
+    statusFeedback.textContent = 'Updated';
+    // optimistic UI refresh
+    await loadAndRender();
+    setTimeout(()=>{ statusFeedback.textContent = '' }, 2000);
+  }catch(err){ statusFeedback.textContent = 'Failed: '+err.message }
+  finally{ updateStatusBtn.disabled = false }
+}
+
+// Events
+// Chat form submission
+const CHAT_SESSION_KEY = 'vunoh_chat_session';
+
+function getStoredSession(){ return localStorage.getItem(CHAT_SESSION_KEY) }
+function setStoredSession(id){ localStorage.setItem(CHAT_SESSION_KEY, id) }
+
+async function appendMessage(role, text){
+  const el = document.createElement('div');
+  el.className = `chat-msg ${role === 'user' ? 'chat-user' : 'chat-ai'}`;
+  el.innerHTML = `<div class="bubble">${escapeHtml(String(text))}</div>`;
+  chatWindow.appendChild(el);
+  chatWindow.scrollTop = chatWindow.scrollHeight;
+}
+
+async function sendChatMessage(message){
+  const sessionId = getStoredSession();
+  // show user message locally
+  await appendMessage('user', message);
+  chatInput.value = '';
+  chatSend.disabled = true; chatSend.textContent = '…';
+
+  try{
+    const payload = { sessionId, message };
+    const res = await fetch(`${BASE}/chat`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    if(!res.ok){ throw new Error(await res.text()) }
+    const data = await res.json();
+    if(data.sessionId) setStoredSession(data.sessionId);
+
+    if(data.type === 'followup'){
+      await appendMessage('ai', data.message);
+      chatFeedback.textContent = '';
+    } else if(data.type === 'complete'){
+      await appendMessage('ai', data.message);
+      chatFeedback.textContent = 'Request created — refreshing dashboard...';
+      // Refresh tasks list
+      await loadAndRender();
+      setTimeout(()=>{ chatFeedback.textContent = '' }, 3000);
+    } else {
+      await appendMessage('ai', data.message || 'Sorry, something went wrong.');
+    }
+  }catch(err){
+    chatFeedback.textContent = 'Error: '+err.message;
+  }finally{
+    chatSend.disabled = false; chatSend.textContent = 'Send';
+  }
+}
+
+chatForm.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const msg = chatInput.value && chatInput.value.trim();
+  if(!msg) return; await sendChatMessage(msg);
+});
+
+// Wire the AI/star button to focus the input for quick prompts
+const chatAIBtn = document.getElementById('chatAIBtn');
+if (chatAIBtn) chatAIBtn.addEventListener('click', (e)=>{ e.preventDefault(); chatInput.focus(); });
+
+// Wire mic button (non-functional stub) to focus input — placeholder for voice integration
+const chatMic = document.getElementById('chatMic');
+if (chatMic) chatMic.addEventListener('click', (e)=>{ e.preventDefault(); chatInput.focus(); });
+
+refreshBtn.addEventListener('click', loadAndRender);
+modalBackdrop.addEventListener('click', closeModalFn);
+closeModal.addEventListener('click', closeModalFn);
+updateStatusBtn.addEventListener('click', handleStatusUpdate);
+
+// Init
+// Initial render
+loadAndRender();
+
+// Warm welcome message if no session
+if(!getStoredSession()){
+  appendMessage('ai', 'Hi — tell me what you need and I will guide you through the required information.');
+}
+
+// --- PROFILE / AUTH UI ---
+const profileBtn = document.getElementById('profileBtn');
+const profileDropdown = document.getElementById('profileDropdown');
+const profileEmail = document.getElementById('profileEmail');
+const profileAvatar = document.getElementById('profileAvatar');
+const logoutBtn = document.getElementById('logoutBtn');
+
+async function loadCurrentUser(){
+  try{
+    const res = await fetch('/auth/me', { credentials: 'same-origin' });
+    const data = await res.json();
+    if(res.ok && data.success){
+      const u = data.user;
+      profileEmail.textContent = u.email || '-';
+      // simple avatar from initials
+      const initials = (u.user_metadata && u.user_metadata.full_name)? u.user_metadata.full_name.split(' ').map(s=>s[0]).slice(0,2).join('') : (u.email? u.email[0].toUpperCase() : 'U');
+      profileAvatar.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=6d28d9&color=fff&rounded=true&size=128`;
+    }
+  }catch(err){ console.warn('Could not load current user', err) }
+}
+
+if(profileBtn){
+  profileBtn.addEventListener('click', (e)=>{
+    const expanded = profileBtn.getAttribute('aria-expanded') === 'true';
+    profileBtn.setAttribute('aria-expanded', String(!expanded));
+    profileDropdown.setAttribute('aria-hidden', String(expanded));
+  });
+}
+
+if(logoutBtn){
+  logoutBtn.addEventListener('click', async ()=>{
+    try{
+      logoutBtn.disabled = true; logoutBtn.textContent = 'Logging out…';
+      const res = await fetch('/auth/logout', { method:'POST', credentials:'same-origin' });
+      // clear any stored session
+      localStorage.removeItem('vunoh_chat_session');
+      window.location.href = '/login.html';
+    }catch(err){ alert('Logout failed') }
+  });
+}
+
+// load user into nav
+loadCurrentUser();

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Profile - Vunoh</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="container">
+    <div class="card">
+      <h2>Profile</h2>
+      <div id="feedback"></div>
+      <form id="profileForm">
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input id="email" class="input" type="email" disabled />
+        </div>
+        <div class="form-group">
+          <label for="full_name">Full name</label>
+          <input id="full_name" class="input" type="text" />
+        </div>
+        <div class="form-group">
+          <button id="saveBtn" class="button" type="submit">Save profile</button>
+        </div>
+      </form>
+      <div class="footer"><a href="/app/">Back to app</a></div>
+    </div>
+  </main>
+  <script src="/profile.js" type="module"></script>
+</body>
+</html>

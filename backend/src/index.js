@@ -26,12 +26,7 @@ app.use((req, res, next) => {
 });
 
 // Serve static public files (public assets like login/register should be accessible)
-app.use(express.static(path.join(__dirname, '..', 'public')));
-
-// Ensure auth pages are always reachable without auth middleware
-app.get('/register.html', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'register.html')));
-app.get('/login.html', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'login.html')));
-app.get('/404.html', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', '404.html')));
+app.use(express.static(path.join(__dirname, '../../frontend/public')));
 
 // Deny direct access to raw frontend paths like /frontend/* — always redirect to login (will be guarded)
 app.use('/frontend', (req, res) => res.redirect('/login.html'));
@@ -40,7 +35,7 @@ app.use('/frontend', (req, res) => res.redirect('/login.html'));
 app.use(requireAuth);
 
 // Serve protected frontend (chat app) after auth middleware so only authenticated users can access
-app.use('/app', express.static(path.join(__dirname, '..', 'frontend')));
+app.use('/app', express.static(path.join(__dirname, '../../frontend/app')));
 
 // Redirect root to protected app (will trigger auth middleware)
 app.get('/', (req, res) => res.redirect('/app/'));
@@ -56,7 +51,7 @@ if (aiRoutes && aiRoutes.chatHandler) app.post('/api/chat', aiRoutes.chatHandler
 
 // Catch-all 404 -> serve public/404.html
 app.use((req, res) => {
-  res.status(404).sendFile(path.join(__dirname, '..', 'public', '404.html'));
+  res.status(404).sendFile(path.join(__dirname, '../../frontend/public', '404.html'));
 });
 
 app.listen(PORT, () => {

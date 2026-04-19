@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Register - Vunoh</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="container">
+    <div class="card">
+      <div class="header">
+        <h2>Create an account</h2>
+        <p class="link-row">Sign up to get started.</p>
+      </div>
+
+      <div id="feedback"></div>
+
+      <form id="registerForm" novalidate>
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input id="email" class="input" type="email" inputmode="email" required />
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input id="password" class="input" type="password" minlength="8" required />
+        </div>
+        <div class="form-group">
+          <button id="submitBtn" class="button" type="submit">Sign up</button>
+        </div>
+      </form>
+
+      <div class="footer">Already have an account? <a href="/login.html">Log in</a></div>
+    </div>
+  </main>
+  <script src="/register.js" type="module"></script>
+</body>
+</html>

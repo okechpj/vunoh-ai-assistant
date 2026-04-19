@@ -1,0 +1,37 @@
+/* Unified public styles to match app design */
+:root{
+  --bg:#f7f8fb;
+  --card:#ffffff;
+  --muted:#6b7280;
+  --text:#0f172a;
+  --accent:#0ea5a4;
+  --success:#16a34a;
+  --danger:#ef4444;
+  --radius:12px;
+  --gap:16px;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial;color:var(--text);background:var(--bg)}
+.container{max-width:640px;margin:48px auto;padding:20px}
+.card{background:var(--card);border-radius:16px;padding:24px;box-shadow:0 10px 30px rgba(2,6,23,0.06)}
+.header{margin-bottom:10px}
+.form-group{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.input{padding:12px 14px;border-radius:10px;border:1px solid #e6edf3;font-size:15px;background:#fff}
+.button{padding:10px 14px;border-radius:12px;border:0;background:linear-gradient(90deg,var(--accent),#06b6d4);color:white;font-weight:700;cursor:pointer}
+.button:disabled{opacity:0.6}
+.alert{padding:12px 14px;border-radius:10px;font-size:14px;margin-bottom:12px}
+.alert.success{background:#ecfdf5;color:#065f46;border:1px solid #bbf7d0}
+.alert.error{background:#fff1f2;color:#7f1d1d;border:1px solid #fecaca}
+.link-row{margin-top:8px;font-size:14px;color:var(--muted)}
+.link-row a{color:#6d28d9;text-decoration:none;font-weight:600}
+.footer{margin-top:16px;font-size:13px;color:var(--muted)}
+.center{display:flex;justify-content:center}
+
+/* 404 page */
+.error-404{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:16px}
+.error-404 h1{font-size:36px;margin:0}
+.error-404 p{color:var(--muted);margin:0}
+.btn-ghost{padding:10px 14px;border-radius:10px;border:1px solid #e6edf3;background:white;cursor:pointer}
+
+/* Small responsive tweaks */
+@media (max-width:520px){.container{padding:16px}}

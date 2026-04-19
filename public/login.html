@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Login - Vunoh</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="container">
+    <div class="card">
+      <div class="header">
+        <h2>Welcome back</h2>
+        <p class="link-row">Log in to your account.</p>
+      </div>
+
+      <div id="feedback"></div>
+
+      <form id="loginForm" novalidate>
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input id="email" class="input" type="email" inputmode="email" required />
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input id="password" class="input" type="password" minlength="8" required />
+        </div>
+        <div class="form-group">
+          <button id="submitBtn" class="button" type="submit">Sign in</button>
+        </div>
+      </form>
+
+      <div class="footer">Don't have an account? <a href="/register.html">Sign up</a></div>
+    </div>
+  </main>
+  <script src="/login.js" type="module"></script>
+</body>
+</html>

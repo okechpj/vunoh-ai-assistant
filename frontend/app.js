@@ -89,7 +89,7 @@ function riskClass(score){
 async function fetchJson(url, opts = {}){
   const headers = { 'Content-Type': 'application/json' };
   // CORS-friendly: fetch to backend running on a different origin
-  const cfg = Object.assign({ headers, mode: 'cors', credentials: 'omit' }, opts);
+  const cfg = Object.assign({ headers, mode: 'cors', credentials: 'same-origin' }, opts);
   const res = await fetch(url, cfg);
   if(!res.ok){
     const text = await res.text();
